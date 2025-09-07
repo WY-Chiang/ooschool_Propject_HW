@@ -8,6 +8,7 @@ from matplotlib.pyplot import figure
 
 #### testtesetestestste
 
+
 #General
 AAPL = yf.Ticker("AAPL")
 AAPL_bs =AAPL.balancesheet
