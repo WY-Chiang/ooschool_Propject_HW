@@ -1,5 +1,8 @@
 import yfinance as yf
 import pandas as pd
+from numpy.matlib import empty
+from pandas.core.indexes.multi import names_compat
+
 
 def score_stock(symbol: str):
     ticker = yf.Ticker(symbol)
@@ -10,9 +13,9 @@ def score_stock(symbol: str):
         bs = ticker.balance_sheet  # Stockholders Equity
         cf = ticker.cashflow  # Operating Cash Flow, Capital Expenditure
         div = ticker.dividends  # 股息
-        fin.to_csv(f"{ticker}financial.csv") #print financial report
-        bs.to_csv(f"{ticker}balance_sheet.csv") #print balance sheet
-        cf.to_csv(f"{ticker}cash_flow.csv") #pirnt cash flow
+        # fin.to_csv(f"{ticker}financial.csv") #print financial report
+        # bs.to_csv(f"{ticker}balance_sheet.csv") #print balance sheet
+        # cf.to_csv(f"{ticker}cash_flow.csv") #pirnt cash flow
     except Exception as e:
         print(f"抓取資料錯誤: {e}")
         return None
@@ -21,7 +24,7 @@ def score_stock(symbol: str):
     try:
         eps = fin.loc["Diluted EPS"].dropna()
         years_available = len(eps)
-        window = 10 if years_available >= 10 else min(5, years_available)
+        window = 10 if years_available >= 10 else min(6, years_available)
         years = eps.index.year[-window:]
     except Exception:
         print("EPS 資料不足")
@@ -33,7 +36,7 @@ def score_stock(symbol: str):
     # --- 1. EPS 穩定成長 ---
     eps_sub = eps[eps.index.year.isin(years)]
     eps_sub.index = eps_sub.index.year
-    score["EPS Score"] = 1 if all(eps_sub.diff().dropna() > 0) else 0
+    score["EPS: 每年穩定增加"] = 1 if all(eps_sub.diff().dropna() > 0) else 0
 
     # --- 2. Dividends 穩定成長 ---
     if not div.empty:
@@ -41,10 +44,10 @@ def score_stock(symbol: str):
         div_sub = annual_div[annual_div.index.isin(years)]
         div_sub.index.name = "Year"  # 設定 index 名稱
 
-        score["Dividends Score"] = 1 if len(div_sub) >= 2 and all(div_sub.diff().dropna() > 0) else 0
+        score["Dividends: 每年穩定增加"] = 1 if len(div_sub) >= 2 and all(div_sub.diff().dropna() > 0) else 0
     else:
         div_sub = pd.Series(dtype=float)
-        score["Dividends Score"] = 0
+        score["Dividends: 每年穩定增加"] = 0
 
     # --- 3. ROE > 20% ---
     try:
@@ -55,10 +58,10 @@ def score_stock(symbol: str):
         net_sub.index = net_sub.index.year
         equity_sub.index = equity_sub.index.year
         roe = net_sub / equity_sub
-        score["ROE Score"] = 1 if all(roe > 0.2) else 0
+        score["ROE: 每年都>20%"] = 1 if all(roe > 0.2) else 0
     except Exception:
         roe = pd.Series(dtype=float)
-        score["ROE Score"] = 0
+        score["ROE: 每年都>20%"] = 0
 
     # --- 4. Net Margin >20%(+1) or 10%(+0.5) ---
     try:
@@ -70,14 +73,14 @@ def score_stock(symbol: str):
         net_sub.index = net_sub.index.year
         nm = net_sub / revenue_sub
         if all(nm > 0.2):
-            score["Net Margin Score"] = 1
+            score["Net Margin: 每年>20%(+1), 每年>10%(+0.5)"] = 1
         elif all(nm > 0.1):
-            score["Net Margin Score"] = 0.5
+            score["Net Margin: 每年>20%(+1), 每年>10%(+0.5)"] = 0.5
         else:
-            score["Net Margin Score"] = 0
+            score["Net Margin: 每年>20%(+1), 每年>10%(+0.5)"] = 0
     except Exception:
         nm = pd.Series(dtype=float)
-        score["Net Margin Score"] = 0
+        score["Net Margin: 每年>20%(+1), 每年>10%(+0.5)"] = 0
 
     # --- 5. Interest Coverage (>10(+1), >4(+0.5) )---
     try:
@@ -88,14 +91,14 @@ def score_stock(symbol: str):
         ic = (ebit_sub / interest_sub).dropna()
         ic.index = ic.index.year
         if all(ic > 10):
-            score["IC Score"] = 1
+            score["IC: >10% (+1), >4 (+0.5)"] = 1
         elif all(ic > 4):
-            score["IC Score"] = 0.5
+            score["IC: >10% (+1), >4 (+0.5)"] = 0.5
         else:
-            score["IC Score"] = 0
+            score["IC: >10% (+1), >4 (+0.5)"] = 0
     except Exception:
         ic = pd.Series(dtype=float)
-        score["IC Score"] = 0
+        score["IC: >10% (+1), >4 (+0.5)"] = 0
 
     # --- 6. FCF > 0 (continuously)---
     try:
@@ -107,28 +110,31 @@ def score_stock(symbol: str):
         # cap_sub.index = cap_sub.index.year
         fcf = op_sub + cap_sub
         fcf.index = fcf.index.year
-        score["FCF Score"] = 1 if all(fcf > 0) else 0
+        score["FCF: 每年>0"] = 1 if all(fcf > 0) else 0
     except Exception:
         fcf = pd.Series(dtype=float)
-        score["FCF Score"] = 0
+        score["FCF: 每年>0"] = 0
 
     # 總分
-    score["Total Score"] = sum(score.values())
+    Total_Score = sum(score.values())
+    score["Total Score"] = Total_Score
+
+
     score_df = pd.DataFrame(score, index = [symbol])
 
     #raw data
     raw_df = pd.DataFrame({
-        "EPS":eps_sub,
-        "Dividen" : div_sub,
-        "ROE": roe,
-        "Net Margin": nm,
-        "Free Cash flow": fcf,
-        "Interest Coverage": ic,
+        "EPS 原始資料":eps_sub,
+        "Dividen 原始資料" : div_sub,
+        "ROE 原始資料": roe,
+        "Net Margin 原始資料": nm,
+        "Free Cash flow 原始資料": fcf,
+        "Interest Coverage 原始資料": ic,
     })
     raw_df.index.name = "Year"
     raw_df["Symbol"] = symbol
 
-    return score_df, raw_df
+    return score_df, raw_df, Total_Score
 
 # =================== 主程式 ===================
 if __name__ == "__main__":
@@ -136,24 +142,27 @@ if __name__ == "__main__":
 
     all_scores = []
     all_raws = []
+    A_company = []
+    B_company = []
+
+    #判斷是不是好公司 (5分=A級, >3分=B級)
 
     for symbol in stock_symbol:
-        score_df, raw_df = score_stock(symbol)
+        symbol = symbol.strip()
+        score_df, raw_df, Total_Score = score_stock(symbol)
         all_scores.append(score_df)
-        all_raws.append(raw_df)
+        empty_row = pd.DataFrame([[""] * len(raw_df.columns)], columns = raw_df.columns, index = [""]) #加一行空白的區隔不同公司
+        raw_with_blank = pd.concat([raw_df,empty_row])
+        all_raws.append(raw_with_blank)
+        if Total_Score ==5:
+            A_company.append(symbol)
+        elif Total_Score >= 3:
+            B_company.append(symbol)
 
     final_scores = pd.concat(all_scores)
     final_raws = pd.concat(all_raws)
 
-    # print("分數")
-    # print(all_scores)
-    # print(type(all_scores))
-    # print(type(final_scores))
-    #
-    # print("原始資料")
-    # print(all_raws)
-    # print(type(all_raws))
-    print(type(final_raws))
+    print(f"5分好公司:{A_company}, 3分以上好公司: {B_company}")
 
     final_scores.to_csv(f"Report_{stock_symbol}_score.csv")
     final_raws.to_csv(f"Report_{stock_symbol}_raw.csv")
