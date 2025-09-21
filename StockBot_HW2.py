@@ -10,7 +10,9 @@ def score_stock(symbol: str):
         bs = ticker.balance_sheet  # Stockholders Equity
         cf = ticker.cashflow  # Operating Cash Flow, Capital Expenditure
         div = ticker.dividends  # 股息
-        fin.to_csv(f"{ticker}financial.csv")
+        fin.to_csv(f"{ticker}financial.csv") #print financial report
+        bs.to_csv(f"{ticker}balance_sheet.csv") #print balance sheet
+        cf.to_csv(f"{ticker}cash_flow.csv") #pirnt cash flow
     except Exception as e:
         print(f"抓取資料錯誤: {e}")
         return None
@@ -67,7 +69,6 @@ def score_stock(symbol: str):
         revenue_sub.index = revenue_sub.index.year
         net_sub.index = net_sub.index.year
         nm = net_sub / revenue_sub
-        print(nm)
         if all(nm > 0.2):
             score["Net Margin Score"] = 1
         elif all(nm > 0.1):
@@ -86,9 +87,6 @@ def score_stock(symbol: str):
         interest_sub = interest[interest.index.year.isin(years)]
         ic = (ebit_sub / interest_sub).dropna()
         ic.index = ic.index.year
-        print(ebit)
-        print(interest_sub)
-        print(ic)
         if all(ic > 10):
             score["IC Score"] = 1
         elif all(ic > 4):
@@ -116,7 +114,7 @@ def score_stock(symbol: str):
 
     # 總分
     score["Total Score"] = sum(score.values())
-    score_df = pd.DataFrame({f"{window}Y Window": score}).T
+    score_df = pd.DataFrame(score, index = [symbol])
 
     #raw data
     raw_df = pd.DataFrame({
@@ -128,18 +126,35 @@ def score_stock(symbol: str):
         "Interest Coverage": ic,
     })
     raw_df.index.name = "Year"
+    raw_df["Symbol"] = symbol
 
     return score_df, raw_df
 
 # =================== 主程式 ===================
 if __name__ == "__main__":
-    stock_symbol = input("Please input stock Symbol: ").strip().upper()
-    score_df, raw_df = score_stock(stock_symbol)
-    print("分數")
-    print(score_df)
-    print("原始資料")
-    print(raw_df)
+    stock_symbol = input("Please input stock Symbol(用逗號 ',' 分隔): ").strip().upper().split(",")
 
-    score_df.to_csv(f"Report_{stock_symbol}_score.csv")
-    raw_df.to_csv(f"Report_{stock_symbol}_raw.csv")
+    all_scores = []
+    all_raws = []
+
+    for symbol in stock_symbol:
+        score_df, raw_df = score_stock(symbol)
+        all_scores.append(score_df)
+        all_raws.append(raw_df)
+
+    final_scores = pd.concat(all_scores)
+    final_raws = pd.concat(all_raws)
+
+    # print("分數")
+    # print(all_scores)
+    # print(type(all_scores))
+    # print(type(final_scores))
+    #
+    # print("原始資料")
+    # print(all_raws)
+    # print(type(all_raws))
+    print(type(final_raws))
+
+    final_scores.to_csv(f"Report_{stock_symbol}_score.csv")
+    final_raws.to_csv(f"Report_{stock_symbol}_raw.csv")
 
