@@ -154,7 +154,7 @@ if __name__ == "__main__":
         empty_row = pd.DataFrame([[""] * len(raw_df.columns)], columns = raw_df.columns, index = [""]) #加一行空白的區隔不同公司
         raw_with_blank = pd.concat([raw_df,empty_row])
         all_raws.append(raw_with_blank)
-        if Total_Score ==5:
+        if Total_Score >=5:
             A_company.append(symbol)
         elif Total_Score >= 3:
             B_company.append(symbol)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     final_scores = pd.concat(all_scores)
     final_raws = pd.concat(all_raws)
 
-    print(f"5分好公司:{A_company}, 3分以上好公司: {B_company}")
+    print(f"5分以上好公司:{A_company}, 3分以上好公司: {B_company}")
 
     final_scores.to_csv(f"Report_{stock_symbol}_score.csv")
     final_raws.to_csv(f"Report_{stock_symbol}_raw.csv")
