@@ -28,7 +28,7 @@ def fetch_price_quarterly(symbol: str, years_back: int = 1) -> pd.Series:
     quarter_ends.index = quarter_ends.index.to_period('Q').to_timestamp('Q')
     return quarter_ends
 
-def build_quarterly_dataset(symbol: str, save_csv: bool = True) -> pd.DataFrame:
+def nabuild_quarterly_dataset(symbol: str, save_csv: bool = True) -> pd.DataFrame:
     symbol = normalize_symbol(symbol)
     ticker = yf.Ticker(symbol)
 
